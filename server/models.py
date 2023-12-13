@@ -15,11 +15,9 @@ class Hotel(db.Model, SerializerMixin):
     __tablename__ = 'hotels'
 
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String)
+    name = db.Column(db.String, nullable=False)
 
-    # add relationship
-
-    # add serialization rules
+    customers = db.relationship('Customer', secondary='hotel_customers', back_populates='hotels')
 
     def __repr__(self):
         return f'<Hotel {self.name}>'
@@ -31,10 +29,8 @@ class Customer(db.Model, SerializerMixin):
     id = db.Column(db.Integer, primary_key=True)
     first_name = db.Column(db.String)
     last_name = db.Column(db.String)
+    hotels = db.relationship('Hotel', secondary='hotel_customers', back_populates='customers')
 
-    # add relationship
-
-    # add serialization rules
 
     def __repr__(self):
         return f'<Customer {self.first_name} {self.last_name}>'
@@ -45,12 +41,34 @@ class HotelCustomer(db.Model, SerializerMixin):
 
     id = db.Column(db.Integer, primary_key=True)
     rating = db.Column(db.Integer, nullable=False)
+    hotel_id = db.Column(db.Integer, db.ForeignKey('hotels.id'), nullable=False)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customers.id'), nullable=False)
 
-    # add relationships
+    hotel = db.relationship('Hotel', backref=db.backref('hotel_ratings', cascade='all, delete-orphan'))
+    customer = db.relationship('Customer', backref=db.backref('customer_ratings', cascade='all, delete-orphan'))
 
-    # add serialization rules
-
-    # add validation
+    @validates('rating')
+    def validate_rating(self, key, rating):
+        if not (1 <= rating <= 5):
+            raise ValueError(f"Rating must be between 1 and 5, got {rating}")
+        return rating
 
     def __repr__(self):
         return f'<HotelCustomer ★{self.rating}>'
+def get_hotel_data(hotel_id):
+    hotel = Hotel.query.get(hotel_id)
+    if hotel:
+        return hotel.to_dict(rules=('-customers',))
+    return None
+
+def get_customer_data(customer_id):
+    customer = Customer.query.get(customer_id)
+    if customer:
+        return customer.to_dict(rules=('-hotels',))
+    return None
+
+def get_hotel_customer_data(hotel_customer_id):
+    hotel_customer = HotelCustomer.query.get(hotel_customer_id)
+    if hotel_customer:
+        return hotel_customer.to_dict()
+    return None
